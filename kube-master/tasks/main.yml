@@ -1,0 +1,81 @@
+---
+# tasks file for kube-master
+- name: Configuring yum repository for kubernetes
+  yum_repository:
+    name: kubernetes
+    description: Yum for k8s
+    baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+    enabled: yes
+    gpgcheck: yes
+    repo_gpgcheck: yes
+    gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+- name: Installing needed packages
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "kubeadm"
+    - "docker"
+    - "iproute-tc"
+
+- name: Enable docker and kubectl services 
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - kubelet
+    - docker
+
+- name: Pulling docker images for cluster
+  command: kubeadm config images pull
+
+- name: updating systemd driver
+  copy:
+    dest: /etc/docker/daemon.json
+    src: daemon.json
+
+- name: restarting docker services
+  service:
+    name: docker
+    state: restarted
+
+- command: "echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables"
+
+- name: initialising kubeadm
+  shell: 
+    cmd: "kubeadm init --pod-network-cidr=10.240.0.0/16 --ignore-preflight-errors=NumCPU --ignore-preflight-errors=Mem"
+  ignore_errors: yes
+
+- name: creating .kube directory
+  file:
+    path: $HOME/.kube
+    state: directory
+
+- name: Duplicate Folder Deletion
+  file:
+        path: "$HOME/.kube/config"
+        state: absent
+  ignore_errors: yes
+- name: commands
+  shell:
+      cmd: "{{ item.command }}"
+
+  loop:
+  - {   command: "cp -i /etc/kubernetes/admin.conf $HOME/.kube/config"   }
+  - {   command: "sudo chown $(id -u):$(id -g) $HOME/.kube/config"   }
+- name: setup flannel
+  shell:
+          cmd:  "kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml"  
+  ignore_errors: yes
+
+- name: Creating Token for worker node
+  shell:
+    cmd: "kubeadm token create --print-join-command"
+  register: token
+   
+
+- name: Save the token in local file
+  local_action: copy content={{ token.stdout }} dest=./token.txt
+

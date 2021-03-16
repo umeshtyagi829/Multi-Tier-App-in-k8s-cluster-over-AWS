@@ -1,0 +1,1 @@
+kubeadm join 172.31.14.221:6443 --token eq7hut.4unwmvq346eda58l     --discovery-token-ca-cert-hash sha256:2b82083c4880a06ecb0b7db5c73dca503c972c09a3bd42da59711d598262cbba 

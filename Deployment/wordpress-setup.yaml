@@ -1,0 +1,12 @@
+- hosts: master
+  tasks:
+  - name: Copy file
+    copy:
+            src: "{{ item }}"
+            dest: /home/ec2-user
+            owner: root
+            mode: 600
+    with_fileglob:
+       - /root/kubernetes-multi-node-cluster-over-aws/Deployment/*
+  - shell: "kubectl apply -f mysql-deployment.yaml"
+  - shell: "kubectl apply -f wordpress-deployment.yaml"  
